@@ -1,0 +1,29 @@
+name: flutter_application_1
+description: "MedCerto - lembrete de remédios para idosos."
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.3
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  flutter_local_notifications: ^17.2.4  # alarmes/notificações locais
+  timezone: ^0.9.4                       # fuso horário dos alarmes agendados
+  sqflite: ^2.4.1                        # banco de dados local
+  path: ^1.9.0                           # caminho do banco
+
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
