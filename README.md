@@ -58,13 +58,5 @@ flutter test         # 36 testes (validação, busca e barra inferior)
 
 **No celular (Android 14 ou mais novo):** permita as notificações e ative **"Notificações em tela cheia"** em Configurações → Aplicativos → MedCerto. Em aparelhos **Samsung**, coloque a bateria do app em **"Sem restrições"** para o alarme não atrasar.
 
-## 👥 Equipe
-
-| Equipe | Frente | Integrantes |
-|---|---|---|
-| E1 | Front-end (app e versão web) | Frederico Barbosa e Mariana Martins |
-| E2 | Back-end (API Django) | Ruan Vitor e Thiago Vieira |
-| E3 | Protótipo, testes e métricas | Daniel Luca e Olicio Souza |
-| E4 | Requisitos, arquitetura e documentação | Gabriel Adriano e Sabrina Rayssa |
 
 <sub>Projeto acadêmico, sem fins comerciais. O MedCerto não substitui orientação médica.</sub>
