@@ -15,6 +15,18 @@ final prefsNotifier = ValueNotifier<Preferencias>(const Preferencias());
 final dadosMudaram = ValueNotifier<int>(0);
 void avisarMudanca() => dadosMudaram.value++;
 
+/// Desde quando o app está na frente da tela (null = em segundo plano).
+DateTime? appNaFrenteDesde;
+
+/// A pessoa já estava usando o app (há mais de 3 s) quando o alarme chegou?
+/// Se não, o app foi aberto pelo alarme — por exemplo com o celular
+/// bloqueado — e deve fechar depois da resposta, voltando à tela de bloqueio.
+bool get appEmUso {
+  final desde = appNaFrenteDesde;
+  return desde != null &&
+      DateTime.now().difference(desde) > const Duration(seconds: 3);
+}
+
 /// Aba selecionada na barra inferior (0 Hoje, 1 Remédios, 2 Adicionar, 3 Perfil).
 final abaAtual = ValueNotifier<int>(0);
 

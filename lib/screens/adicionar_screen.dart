@@ -3,16 +3,40 @@ import 'package:flutter/material.dart';
 import '../theme/tema.dart';
 import '../widgets/componentes.dart';
 import 'digitar_screen.dart';
-import 'falar_screen.dart';
-import 'lendo_receita_screen.dart';
 
-/// Tela "Adicionar" do Figma: três jeitos de cadastrar
-/// (H7 Flexibilidade e eficiência).
+/// Tela "Adicionar": hoje o cadastro é digitando (com sugestão de nomes).
+/// O cadastro por voz está planejado e aparece como "Em breve".
 class AdicionarScreen extends StatelessWidget {
   const AdicionarScreen({super.key});
 
-  void _abrir(BuildContext context, Widget tela) =>
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => tela));
+  void _digitar(BuildContext context) => Navigator.of(context)
+      .push(MaterialPageRoute(builder: (_) => const DigitarScreen()));
+
+  Future<void> _vozEmBreve(BuildContext context) async {
+    final digitar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.mic_none, size: 36, color: Cores.vinho),
+        title: const Text('Cadastro por voz: em breve'),
+        content: const Text(
+          'Estamos trabalhando para você cadastrar o remédio só falando o nome, '
+          'a dose e o horário.\n\nPor enquanto, use a opção Digitar.',
+          style: TextStyle(fontSize: 17, height: 1.35),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Entendi', style: TextStyle(fontSize: 17)),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Digitar agora', style: TextStyle(fontSize: 17)),
+          ),
+        ],
+      ),
+    );
+    if (digitar == true && context.mounted) _digitar(context);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,17 +51,17 @@ class AdicionarScreen extends StatelessWidget {
               style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800, height: 1.15)),
           const SizedBox(height: 28),
 
-          // FALAR (cartão grande vinho)
+          // DIGITAR (cartão principal, vinho)
           Semantics(
             button: true,
-            label: 'Falar: diga o nome, a dose e o horário',
+            label: 'Digitar: escreva o nome, a dose e o horário',
             excludeSemantics: true,
             child: Material(
               color: Cores.vinho,
               borderRadius: BorderRadius.circular(20),
               clipBehavior: Clip.antiAlias,
               child: InkWell(
-                onTap: () => _abrir(context, const FalarScreen()),
+                onTap: () => _digitar(context),
                 child: Stack(
                   children: [
                     Positioned(
@@ -45,25 +69,20 @@ class AdicionarScreen extends StatelessWidget {
                       bottom: -50,
                       child: CirculoDecorativo(tamanho: 160, cor: Cores.vinhoClaro),
                     ),
-                    const Positioned(
-                      right: 20,
-                      bottom: 28,
-                      child: _OndaPequena(),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(20),
+                    const Padding(
+                      padding: EdgeInsets.all(20),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _QuadradoIcone(icone: Icons.mic_none, fundo: Cores.dourado),
-                          const SizedBox(height: 38),
-                          const Text('FALAR',
+                          _QuadradoIcone(icone: Icons.edit_outlined, fundo: Cores.dourado),
+                          SizedBox(height: 38),
+                          Text('DIGITAR',
                               style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 24,
                                   fontWeight: FontWeight.w800)),
-                          const SizedBox(height: 2),
-                          const Text('Diga o nome, a dose e o horário',
+                          SizedBox(height: 2),
+                          Text('Comece a escrever e escolha o nome na lista',
                               style: TextStyle(color: Colors.white, fontSize: 17)),
                         ],
                       ),
@@ -75,29 +94,36 @@ class AdicionarScreen extends StatelessWidget {
           ),
           const SizedBox(height: 14),
 
-          Row(
-            children: [
-              Expanded(
-                child: _CartaoOpcao(
-                  icone: Icons.photo_camera_outlined,
-                  fundoIcone: Cores.dourado,
-                  titulo: 'Foto da receita',
-                  subtitulo: 'A IA lê pra você',
-                  borda: Cores.dourado,
-                  onTap: () => _abrir(context, const LendoReceitaScreen()),
-                ),
+          // FALAR (planejado)
+          Semantics(
+            button: true,
+            label: 'Falar: em breve',
+            excludeSemantics: true,
+            child: Cartao(
+              onTap: () => _vozEmBreve(context),
+              child: Row(
+                children: [
+                  const _QuadradoIcone(icone: Icons.mic_none, fundo: Cores.rosaClaro),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Falar',
+                            style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+                        Text('Diga o nome, a dose e o horário',
+                            style: TextStyle(fontSize: 16, color: corSuave(context))),
+                      ],
+                    ),
+                  ),
+                  const Etiqueta(
+                    texto: 'Em breve',
+                    fundo: Cores.cremeAmarelo,
+                    cor: Cores.marrom,
+                  ),
+                ],
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: _CartaoOpcao(
-                  icone: Icons.edit_outlined,
-                  fundoIcone: Cores.rosaClaro,
-                  titulo: 'Digitar',
-                  subtitulo: 'Você preenche',
-                  onTap: () => _abrir(context, const DigitarScreen()),
-                ),
-              ),
-            ],
+            ),
           ),
           const SizedBox(height: 22),
           Row(
@@ -134,62 +160,4 @@ class _QuadradoIcone extends StatelessWidget {
         decoration: BoxDecoration(color: fundo, borderRadius: BorderRadius.circular(14)),
         child: Icon(icone, size: 30, color: Cores.vinhoEscuro),
       );
-}
-
-class _CartaoOpcao extends StatelessWidget {
-  final IconData icone;
-  final Color fundoIcone;
-  final String titulo, subtitulo;
-  final Color? borda;
-  final VoidCallback onTap;
-
-  const _CartaoOpcao({
-    required this.icone,
-    required this.fundoIcone,
-    required this.titulo,
-    required this.subtitulo,
-    this.borda,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) => Cartao(
-        onTap: onTap,
-        corBorda: borda,
-        child: SizedBox(
-          height: 150,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _QuadradoIcone(icone: icone, fundo: fundoIcone),
-              const Spacer(),
-              Text(titulo,
-                  style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
-              Text(subtitulo, style: TextStyle(fontSize: 16, color: corSuave(context))),
-            ],
-          ),
-        ),
-      );
-}
-
-class _OndaPequena extends StatelessWidget {
-  const _OndaPequena();
-
-  @override
-  Widget build(BuildContext context) {
-    const alturas = [14.0, 24, 18, 30, 20, 26, 12];
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        for (final a in alturas)
-          Container(
-            width: 4,
-            height: a.toDouble(),
-            margin: const EdgeInsets.symmetric(horizontal: 2),
-            decoration: BoxDecoration(
-                color: Cores.dourado, borderRadius: BorderRadius.circular(2)),
-          ),
-      ],
-    );
-  }
 }

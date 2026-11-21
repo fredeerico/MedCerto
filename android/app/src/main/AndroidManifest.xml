@@ -13,6 +13,10 @@
     <!-- Abrir a tela "Hora do remédio" por cima da tela bloqueada -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <!-- Buscar nomes de remédios na API (back Django) -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Entrar com a digital (local_auth) -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
 
     <application
         android:label="MedCerto"

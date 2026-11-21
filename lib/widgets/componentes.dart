@@ -390,20 +390,3 @@ class ColunaRolavel extends StatelessWidget {
     );
   }
 }
-
-/// Aviso discreto de que a tela é simulada (IA ainda não integrada).
-class SeloSimulacao extends StatelessWidget {
-  final bool escuro;
-  const SeloSimulacao({super.key, this.escuro = false});
-
-  @override
-  Widget build(BuildContext context) => Etiqueta(
-        texto: 'Protótipo: IA ainda não conectada',
-        icone: Icons.science_outlined,
-        fundo: escuro
-            ? Colors.white.withValues(alpha: 0.12)
-            : Cores.cremeAmarelo,
-        cor: escuro ? Cores.dourado : Cores.marrom,
-        tamanhoFonte: 12,
-      );
-}

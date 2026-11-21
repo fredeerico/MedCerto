@@ -1,10 +1,21 @@
 /// Funções de data e horário usadas em todo o app (sem pacotes externos).
+library;
 
 const diasCurtos = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 const iniciaisDias = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
 const meses = [
-  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
-  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+  'janeiro',
+  'fevereiro',
+  'março',
+  'abril',
+  'maio',
+  'junho',
+  'julho',
+  'agosto',
+  'setembro',
+  'outubro',
+  'novembro',
+  'dezembro',
 ];
 
 String doisDigitos(int n) => n.toString().padLeft(2, '0');
@@ -14,7 +25,8 @@ String dataChave(DateTime d) =>
     '${d.year}-${doisDigitos(d.month)}-${doisDigitos(d.day)}';
 
 /// 08:05
-String hhmm(int hora, int minuto) => '${doisDigitos(hora)}:${doisDigitos(minuto)}';
+String hhmm(int hora, int minuto) =>
+    '${doisDigitos(hora)}:${doisDigitos(minuto)}';
 String hhmmDe(DateTime d) => hhmm(d.hour, d.minute);
 
 /// "08:05" -> (8, 5)

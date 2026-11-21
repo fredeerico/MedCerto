@@ -1,6 +1,7 @@
 /// Regras de validação e cálculos "puros" (sem Flutter), para poderem ser
 /// testados com `flutter test` — evidência de usabilidade da RT03
 /// (heurísticas H5 Prevenção de erros e H9 Recuperação de erros).
+library;
 
 class ResultadoValidacao {
   final Map<String, String> erros;
@@ -26,6 +27,28 @@ String normalizarDose(String dose) {
   return '${m.group(1)} ${m.group(2)!.toLowerCase()}';
 }
 
+/// Unidades oferecidas no cadastro.
+const unidadesDose = ['mg', 'g', 'ml'];
+
+/// Junta o número digitado com a unidade escolhida: ("850", "mg") -> "850 mg".
+/// Campo vazio -> "" (dose é opcional). Se a pessoa já escreveu a unidade
+/// ou um texto ("1 gota"), mantém o que ela escreveu.
+String montarDose(String quantidade, String unidade) {
+  final t = quantidade.trim();
+  if (t.isEmpty) return '';
+  if (RegExp(r'[a-zA-Zµ]').hasMatch(t)) return normalizarDose(t);
+  return '$t $unidade';
+}
+
+/// Separa uma dose salva em número e unidade: "850 mg" -> ("850", "mg").
+/// Se não reconhecer a unidade, devolve o texto inteiro e "mg".
+(String, String) separarDose(String dose) {
+  final m = RegExp(r'^\s*(\d+(?:[.,]\d+)?)\s*(mg|g|ml)?\s*$', caseSensitive: false)
+      .firstMatch(dose);
+  if (m == null) return (dose.trim(), 'mg');
+  return (m.group(1)!, (m.group(2) ?? 'mg').toLowerCase());
+}
+
 ResultadoValidacao validarMedicamento({
   required String nome,
   required String dose,
@@ -46,11 +69,10 @@ ResultadoValidacao validarMedicamento({
     erros['nome'] = 'O nome está muito longo (máximo 60 letras).';
   }
 
+  // A dose é opcional; se for preenchida, precisa ter um número.
   final d = dose.trim();
-  if (d.isEmpty) {
-    erros['dose'] = 'Escreva a dose. Ex.: 850 mg';
-  } else if (!RegExp(r'\d').hasMatch(d)) {
-    erros['dose'] = 'A dose precisa ter um número. Ex.: 20 mg';
+  if (d.isNotEmpty && !RegExp(r'\d').hasMatch(d)) {
+    erros['dose'] = 'A dose precisa ter um número. Ex.: 850';
   }
 
   if (quantidade < 1 || quantidade > 10) {
@@ -96,7 +118,10 @@ int? calcularDiasRestantes({
   required int dosesPorDia,
   required int diasPorSemana,
 }) {
-  if (estoque == null || quantidade <= 0 || dosesPorDia <= 0 || diasPorSemana <= 0) {
+  if (estoque == null ||
+      quantidade <= 0 ||
+      dosesPorDia <= 0 ||
+      diasPorSemana <= 0) {
     return null;
   }
   if (estoque <= 0) return 0;

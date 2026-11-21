@@ -16,6 +16,9 @@ dependencies:
   timezone: ^0.9.4                       # fuso horário dos alarmes agendados
   sqflite: ^2.4.1                        # banco de dados local
   path: ^1.9.0                           # caminho do banco
+  http: ^1.2.2                           # chamadas à API (catálogo de remédios)
+  local_auth: ^3.0.2                     # entrar com a digital
+  local_auth_android: ^2.0.0             # textos em português da tela da digital
 
   cupertino_icons: ^1.0.8
 

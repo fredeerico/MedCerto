@@ -433,7 +433,7 @@ class _LinhaDose extends StatelessWidget {
               children: [
                 Text(m.nome,
                     style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
-                Text('${dose.horario} · ${m.dose}',
+                Text([dose.horario, if (m.dose.isNotEmpty) m.dose].join(' · '),
                     style: TextStyle(fontSize: 16, color: corSuave(context))),
               ],
             ),

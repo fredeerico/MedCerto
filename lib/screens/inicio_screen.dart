@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../services/biometria.dart';
 import '../services/estado.dart';
 import '../theme/tema.dart';
 import '../widgets/componentes.dart';
 import 'pin_screen.dart';
+import 'shell_screen.dart';
 
 /// Tela "01 - Início" do Figma.
 class InicioScreen extends StatelessWidget {
@@ -14,6 +16,27 @@ class InicioScreen extends StatelessWidget {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => PinScreen(criando: !temPin),
     ));
+  }
+
+  /// "Entrar com digital": o Android mostra a tela do sensor.
+  /// Precisa ter um PIN criado antes (é a alternativa se a digital falhar).
+  Future<void> _entrarComDigital(BuildContext context) async {
+    if (prefsNotifier.value.pin.isEmpty) {
+      mostrarAviso('Primeiro crie um PIN. Depois você pode entrar com a digital.');
+      _entrarComPin(context);
+      return;
+    }
+    final resultado = await Biometria.instance.entrar();
+    if (!context.mounted) return;
+    if (resultado == ResultadoDigital.ok) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const ShellScreen()),
+        (_) => false,
+      );
+      return;
+    }
+    final aviso = Biometria.mensagem(resultado);
+    if (aviso != null) mostrarAviso(aviso);
   }
 
   @override
@@ -132,12 +155,7 @@ class InicioScreen extends StatelessWidget {
                     icone: Icons.fingerprint,
                     fundo: Cores.dourado,
                     corTexto: Cores.vinhoEscuro,
-                    onPressed: () {
-                      // Biometria fica para a próxima versão (pacote local_auth).
-                      mostrarAviso(
-                          'Entrada por digital chega na próxima versão. Use o PIN.');
-                      _entrarComPin(context);
-                    },
+                    onPressed: () => _entrarComDigital(context),
                   ),
                   const SizedBox(height: 14),
                   BotaoGrande(

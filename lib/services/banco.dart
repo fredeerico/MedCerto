@@ -131,6 +131,23 @@ class Banco {
     });
   }
 
+  /// Valor avulso guardado na tabela de preferências (ex.: token da API).
+  /// Devolve null quando não existe ou está vazio.
+  Future<String?> lerChave(String chave) async {
+    final db = await _banco;
+    final linhas = await db.query('preferencias',
+        where: 'chave = ?', whereArgs: [chave], limit: 1);
+    if (linhas.isEmpty) return null;
+    final valor = linhas.first['valor'] as String?;
+    return (valor == null || valor.isEmpty) ? null : valor;
+  }
+
+  Future<void> salvarChave(String chave, String valor) async {
+    final db = await _banco;
+    await db.insert('preferencias', {'chave': chave, 'valor': valor},
+        conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
   Future<void> salvarPreferencias(Preferencias p) async {
     final db = await _banco;
     final lote = db.batch();

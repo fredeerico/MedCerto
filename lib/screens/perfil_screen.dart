@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../models/preferencias.dart';
 import '../services/banco.dart';
+import '../services/biometria.dart';
 import '../services/estado.dart';
 import '../services/notificacoes.dart';
 import '../theme/tema.dart';
 import '../widgets/componentes.dart';
 import 'inicio_screen.dart';
-import 'teste_notificacoes_screen.dart';
 
 /// Tela "Perfil" do Figma: letra, contraste, vibração, som e acompanhamento.
 class PerfilScreen extends StatelessWidget {
@@ -89,8 +89,18 @@ class PerfilScreen extends StatelessWidget {
                                         color: Colors.white,
                                         fontSize: 28,
                                         fontWeight: FontWeight.w800)),
-                                Text(p.pin.isEmpty ? 'Sem PIN' : 'PIN ativo',
-                                    style: const TextStyle(color: Colors.white, fontSize: 16)),
+                                FutureBuilder<bool>(
+                                  future: Biometria.instance.disponivel(),
+                                  builder: (context, digital) => Text(
+                                    p.pin.isEmpty
+                                        ? 'Sem PIN'
+                                        : (digital.data == true
+                                            ? 'PIN e digital ativos'
+                                            : 'PIN ativo'),
+                                    style: const TextStyle(
+                                        color: Colors.white, fontSize: 16),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -213,19 +223,7 @@ class PerfilScreen extends StatelessWidget {
                       icone: Icons.people_outline,
                       fundoIcone: Cores.dourado,
                       titulo: 'Acompanhamento',
-                      subtitulo: 'Convide alguém por e-mail',
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Cartao(
-                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => const TesteNotificacoesScreen(),
-                    )),
-                    child: const _LinhaLink(
-                      icone: Icons.notifications_active_outlined,
-                      fundoIcone: Cores.rosaClaro,
-                      titulo: 'Testar alarme',
-                      subtitulo: 'Veja se as notificações estão chegando',
+                      subtitulo: 'Em breve: convide alguém por e-mail',
                     ),
                   ),
                   const SizedBox(height: 14),

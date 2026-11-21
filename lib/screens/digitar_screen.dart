@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/medicamento.dart';
 import '../services/banco.dart';
@@ -7,26 +8,16 @@ import '../services/notificacoes.dart';
 import '../theme/tema.dart';
 import '../utils/datas.dart';
 import '../utils/validacao.dart';
+import '../widgets/campo_nome_remedio.dart';
 import '../widgets/componentes.dart';
 
 /// Tela "04 - Digitar" do Figma (Novo remédio / Editar).
 ///
-/// [editar]: remédio existente. [rascunho]: dados vindos da IA (voz/foto)
-/// para a pessoa conferir. [apenasDevolver]: não salva, só devolve o
-/// remédio corrigido (usado na tela de resultado da receita).
+/// [editar]: remédio existente (null = novo remédio).
 class DigitarScreen extends StatefulWidget {
   final Medicamento? editar;
-  final Medicamento? rascunho;
-  final bool vindoDaIA;
-  final bool apenasDevolver;
 
-  const DigitarScreen({
-    super.key,
-    this.editar,
-    this.rascunho,
-    this.vindoDaIA = false,
-    this.apenasDevolver = false,
-  });
+  const DigitarScreen({super.key, this.editar});
 
   @override
   State<DigitarScreen> createState() => _DigitarScreenState();
@@ -49,23 +40,25 @@ class _DigitarScreenState extends State<DigitarScreen> {
   final Set<int> _dias = {};
   Map<String, String> _erros = {};
   bool _salvando = false;
+  String _unidade = 'mg';
 
   @override
   void initState() {
     super.initState();
-    final base = widget.editar ?? widget.rascunho;
+    final base = widget.editar;
     if (base != null) {
       _nome.text = base.nome;
-      _dose.text = base.dose;
+      final (numero, unidade) = separarDose(base.dose);
+      _dose.text = numero;
+      _unidade = unidade;
       _obs.text = base.observacao;
       _quantidade = base.quantidade;
       _horarios.addAll(base.horarios);
       _todoDia = base.todoDia;
       _dias.addAll(base.dias);
       if (base.caixa > 0) _caixa.text = '${base.estoque}';
-    } else {
-      _horarios.add('08:00');
     }
+    // Remédio novo começa sem horário marcado: a pessoa escolhe.
   }
 
   @override
@@ -82,21 +75,25 @@ class _DigitarScreenState extends State<DigitarScreen> {
   List<String> get _extras => ordenarHorarios(
       _horarios.where((h) => !_periodos.any((p) => p.$2 == h)));
 
+  /// Abre o seletor de horário com botões grandes de + e −.
   Future<void> _outroHorario() async {
-    final escolhido = await showTimePicker(
+    final escolhido = await showModalBottomSheet<String>(
       context: context,
-      initialTime: const TimeOfDay(hour: 12, minute: 0),
-      helpText: 'Escolha o horário',
-      cancelText: 'Cancelar',
-      confirmText: 'Pronto',
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-        child: child!,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Cores.creme,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
+      builder: (_) => const _SeletorHorario(),
     );
-    if (escolhido == null) return;
+    if (escolhido == null || !mounted) return;
+    if (_horarios.contains(escolhido)) {
+      mostrarAviso('O horário $escolhido já está marcado.');
+      return;
+    }
     setState(() {
-      _horarios.add(hhmm(escolhido.hour, escolhido.minute));
+      _horarios.add(escolhido);
       _erros.remove('horarios');
     });
   }
@@ -127,7 +124,7 @@ class _DigitarScreenState extends State<DigitarScreen> {
     final m = Medicamento(
       id: base?.id,
       nome: _nome.text.trim(),
-      dose: normalizarDose(_dose.text),
+      dose: montarDose(_dose.text, _unidade),
       quantidade: _quantidade,
       observacao: _obs.text.trim(),
       horarios: ordenarHorarios(_horarios),
@@ -136,14 +133,9 @@ class _DigitarScreenState extends State<DigitarScreen> {
       estoque: estoque,
       caixa: caixa,
       ativo: base?.ativo ?? true,
-      cor: base?.cor ?? widget.rascunho?.cor ?? DateTime.now().second % paresPilula.length,
+      cor: base?.cor ?? DateTime.now().second % paresPilula.length,
       criadoEm: base?.criadoEm ?? dataChave(DateTime.now()),
     );
-
-    if (widget.apenasDevolver) {
-      Navigator.of(context).pop(m);
-      return;
-    }
 
     setState(() => _salvando = true);
     final id = await Banco.instance.salvarMedicamento(m);
@@ -178,99 +170,74 @@ class _DigitarScreenState extends State<DigitarScreen> {
                       ),
                     ],
                   ),
-                  if (widget.vindoDaIA || widget.rascunho != null) ...[
-                    const SizedBox(height: 14),
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: Cores.cremeAmarelo,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.auto_awesome, color: Cores.marrom),
-                          SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Preenchi com o que entendi. Confira antes de salvar.',
-                              style: TextStyle(fontSize: 16, color: Cores.marrom),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
                   const SizedBox(height: 22),
 
                   const TituloSecao('Nome'),
                   const SizedBox(height: 8),
-                  TextField(
+                  // Sugere nomes do catálogo do servidor enquanto a pessoa digita.
+                  CampoNomeRemedio(
                     controller: _nome,
-                    textCapitalization: TextCapitalization.sentences,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-                    decoration: InputDecoration(
-                      hintText: 'Ex.: Metformina',
-                      errorText: _erros['nome'],
-                    ),
-                    onChanged: (_) => setState(() => _erros.remove('nome')),
+                    erro: _erros['nome'],
+                    onChanged: (_) {
+                      if (_erros.containsKey('nome')) {
+                        setState(() => _erros.remove('nome'));
+                      }
+                    },
                   ),
                   const SizedBox(height: 20),
 
+                  const TituloSecao('Dose (opcional)'),
+                  const SizedBox(height: 8),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const TituloSecao('Dose'),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: _dose,
-                              style: const TextStyle(
-                                  fontSize: 20, fontWeight: FontWeight.w700),
-                              decoration: InputDecoration(
-                                hintText: '850 mg',
-                                errorText: _erros['dose'],
-                                errorMaxLines: 3,
-                              ),
-                              onChanged: (_) => setState(() => _erros.remove('dose')),
-                            ),
-                          ],
+                        child: TextField(
+                          controller: _dose,
+                          keyboardType:
+                              const TextInputType.numberWithOptions(decimal: true),
+                          style: const TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.w700),
+                          decoration: InputDecoration(
+                            hintText: 'Ex.: 850',
+                            errorText: _erros['dose'],
+                            errorMaxLines: 3,
+                          ),
+                          onChanged: (_) => setState(() => _erros.remove('dose')),
                         ),
                       ),
-                      const SizedBox(width: 14),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const TituloSecao('Comprimidos'),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              _BotaoQuadrado(
-                                icone: Icons.remove,
-                                rotulo: 'Menos um comprimido',
-                                onTap: _quantidade > 1
-                                    ? () => setState(() => _quantidade--)
-                                    : null,
-                              ),
-                              SizedBox(
-                                width: 40,
-                                child: Text('$_quantidade',
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                        fontSize: 24, fontWeight: FontWeight.w800)),
-                              ),
-                              _BotaoQuadrado(
-                                icone: Icons.add,
-                                rotulo: 'Mais um comprimido',
-                                onTap: _quantidade < 10
-                                    ? () => setState(() => _quantidade++)
-                                    : null,
-                              ),
-                            ],
-                          ),
-                        ],
+                      const SizedBox(width: 10),
+                      _SeletorUnidade(
+                        valor: _unidade,
+                        onChanged: (u) => setState(() => _unidade = u),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  const TituloSecao('Comprimidos por vez'),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      _BotaoQuadrado(
+                        icone: Icons.remove,
+                        rotulo: 'Menos um comprimido',
+                        onTap: _quantidade > 1
+                            ? () => setState(() => _quantidade--)
+                            : null,
+                      ),
+                      SizedBox(
+                        width: 56,
+                        child: Text('$_quantidade',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                fontSize: 26, fontWeight: FontWeight.w800)),
+                      ),
+                      _BotaoQuadrado(
+                        icone: Icons.add,
+                        rotulo: 'Mais um comprimido',
+                        onTap: _quantidade < 10
+                            ? () => setState(() => _quantidade++)
+                            : null,
                       ),
                     ],
                   ),
@@ -323,7 +290,7 @@ class _DigitarScreenState extends State<DigitarScreen> {
                     child: TextButton.icon(
                       onPressed: _outroHorario,
                       icon: const Icon(Icons.add, color: Cores.vinho),
-                      label: const Text('Outro horário',
+                      label: const Text('Escolher outro horário',
                           style: TextStyle(
                               fontSize: 17,
                               color: Cores.vinho,
@@ -409,9 +376,7 @@ class _DigitarScreenState extends State<DigitarScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
               child: BotaoGrande(
-                texto: widget.apenasDevolver
-                    ? 'Usar estes dados'
-                    : (_editando ? 'Salvar alterações' : 'Salvar remédio'),
+                texto: _editando ? 'Salvar alterações' : 'Salvar remédio',
                 icone: Icons.check,
                 onPressed: _salvando ? null : _salvar,
               ),
@@ -564,4 +529,308 @@ class _TextoErro extends StatelessWidget {
           ],
         ),
       );
+}
+
+
+/// Botões mg · g · ml ao lado do campo da dose.
+class _SeletorUnidade extends StatelessWidget {
+  final String valor;
+  final ValueChanged<String> onChanged;
+  const _SeletorUnidade({required this.valor, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final u in unidadesDose)
+          Padding(
+            padding: const EdgeInsets.only(left: 6),
+            child: Semantics(
+              button: true,
+              selected: u == valor,
+              label: u,
+              excludeSemantics: true,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: () => onChanged(u),
+                child: Container(
+                  width: 52,
+                  height: 60,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: u == valor ? Cores.vinho : Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: u == valor ? Cores.vinho : Cores.rosa,
+                      width: 2,
+                    ),
+                  ),
+                  child: Text(
+                    u,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: u == valor ? Colors.white : Cores.texto,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Seletor de horário pensado para idosos: hora e minutos grandes, com
+/// botões + e − (sem o relógio de ponteiros do Android).
+class _SeletorHorario extends StatefulWidget {
+  const _SeletorHorario();
+
+  @override
+  State<_SeletorHorario> createState() => _SeletorHorarioState();
+}
+
+class _SeletorHorarioState extends State<_SeletorHorario> {
+  late int _hora;
+  late int _minuto;
+
+  @override
+  void initState() {
+    super.initState();
+    final agora = DateTime.now();
+    _hora = agora.hour;
+    _minuto = (agora.minute ~/ 5) * 5;
+  }
+
+  String get _texto => hhmm(_hora, _minuto);
+
+  String get _periodo {
+    if (_hora < 6) return 'da madrugada';
+    if (_hora < 12) return 'da manhã';
+    if (_hora < 18) return 'da tarde';
+    return 'da noite';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Escolha o horário',
+                style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 4),
+            Text('Toque em + ou −, ou toque no número para digitar',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16, color: corSuave(context))),
+            const SizedBox(height: 18),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _ColunaHorario(
+                  rotulo: 'Hora',
+                  valor: doisDigitos(_hora),
+                  maximo: 23,
+                  aoAumentar: () => setState(() => _hora = (_hora + 1) % 24),
+                  aoDiminuir: () => setState(() => _hora = (_hora - 1) % 24),
+                  aoDigitar: (n) => setState(() => _hora = n),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(':',
+                      style: TextStyle(fontSize: 56, fontWeight: FontWeight.w800)),
+                ),
+                _ColunaHorario(
+                  rotulo: 'Minutos',
+                  valor: doisDigitos(_minuto),
+                  maximo: 59,
+                  aoAumentar: () => setState(() => _minuto = (_minuto + 5) % 60),
+                  aoDiminuir: () => setState(() => _minuto = (_minuto - 5) % 60),
+                  aoDigitar: (n) => setState(() => _minuto = n),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Atalhos para os minutos mais comuns.
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final m in const [0, 15, 30, 45])
+                  ChoiceChip(
+                    label: Text(':${doisDigitos(m)}',
+                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                    selected: _minuto == m,
+                    onSelected: (_) => setState(() => _minuto = m),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text('$_texto $_periodo',
+                style: TextStyle(fontSize: 18, color: corSuave(context))),
+            const SizedBox(height: 18),
+            BotaoGrande(
+              texto: 'Adicionar $_texto',
+              icone: Icons.check,
+              fundo: Cores.vinho,
+              onPressed: () => Navigator.of(context).pop(_texto),
+            ),
+            const SizedBox(height: 6),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancelar', style: TextStyle(fontSize: 17)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ColunaHorario extends StatelessWidget {
+  final String rotulo;
+  final String valor;
+  final int maximo; // 23 para hora, 59 para minutos
+  final VoidCallback aoAumentar;
+  final VoidCallback aoDiminuir;
+  final ValueChanged<int> aoDigitar;
+
+  const _ColunaHorario({
+    required this.rotulo,
+    required this.valor,
+    required this.maximo,
+    required this.aoAumentar,
+    required this.aoDiminuir,
+    required this.aoDigitar,
+  });
+
+  /// Tocar no número abre um campo para digitar direto.
+  Future<void> _digitar(BuildContext context) async {
+    final numero = await showDialog<int>(
+      context: context,
+      builder: (_) => _DialogoNumero(rotulo: rotulo, maximo: maximo, inicial: valor),
+    );
+    if (numero != null) aoDigitar(numero);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(rotulo, style: TextStyle(fontSize: 15, color: corSuave(context))),
+        const SizedBox(height: 6),
+        _BotaoQuadrado(icone: Icons.add, rotulo: 'Aumentar $rotulo', onTap: aoAumentar),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Semantics(
+            button: true,
+            label: '$rotulo: $valor. Toque para digitar',
+            excludeSemantics: true,
+            child: Material(
+              color: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(color: Cores.vinho, width: 2),
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => _digitar(context),
+                child: SizedBox(
+                  width: 112,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Text(valor,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                            fontSize: 52, fontWeight: FontWeight.w800)),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        _BotaoQuadrado(icone: Icons.remove, rotulo: 'Diminuir $rotulo', onTap: aoDiminuir),
+      ],
+    );
+  }
+}
+
+
+/// Janela para digitar a hora ou os minutos (só números, com limite).
+class _DialogoNumero extends StatefulWidget {
+  final String rotulo;
+  final int maximo;
+  final String inicial;
+
+  const _DialogoNumero({
+    required this.rotulo,
+    required this.maximo,
+    required this.inicial,
+  });
+
+  @override
+  State<_DialogoNumero> createState() => _DialogoNumeroState();
+}
+
+class _DialogoNumeroState extends State<_DialogoNumero> {
+  late final TextEditingController _controle = TextEditingController(text: widget.inicial)
+    ..selection = TextSelection(baseOffset: 0, extentOffset: widget.inicial.length);
+  String? _erro;
+
+  @override
+  void dispose() {
+    _controle.dispose();
+    super.dispose();
+  }
+
+  void _confirmar() {
+    final numero = int.tryParse(_controle.text.trim());
+    if (numero == null || numero < 0 || numero > widget.maximo) {
+      setState(() => _erro = 'Digite um número de 0 a ${widget.maximo}.');
+      return;
+    }
+    Navigator.of(context).pop(numero);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ehHora = widget.maximo == 23;
+    return AlertDialog(
+      title: Text(ehHora ? 'Digite a hora' : 'Digite os minutos'),
+      content: TextField(
+        controller: _controle,
+        autofocus: true,
+        keyboardType: TextInputType.number,
+        textAlign: TextAlign.center,
+        inputFormatters: [
+          FilteringTextInputFormatter.digitsOnly,
+          LengthLimitingTextInputFormatter(2),
+        ],
+        style: const TextStyle(fontSize: 44, fontWeight: FontWeight.w800),
+        decoration: InputDecoration(
+          hintText: ehHora ? 'Ex.: 21' : 'Ex.: 30',
+          helperText: ehHora ? 'De 0 a 23' : 'De 0 a 59',
+          helperStyle: const TextStyle(fontSize: 15),
+          errorText: _erro,
+        ),
+        onChanged: (_) {
+          if (_erro != null) setState(() => _erro = null);
+        },
+        onSubmitted: (_) => _confirmar(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar', style: TextStyle(fontSize: 17)),
+        ),
+        FilledButton(
+          onPressed: _confirmar,
+          child: const Text('OK', style: TextStyle(fontSize: 17)),
+        ),
+      ],
+    );
+  }
 }

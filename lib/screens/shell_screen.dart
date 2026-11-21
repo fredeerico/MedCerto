@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/banco.dart';
 import '../services/estado.dart';
 import '../services/notificacoes.dart';
 import '../widgets/barra_inferior.dart';
@@ -22,9 +23,39 @@ class _ShellScreenState extends State<ShellScreen> {
     super.initState();
     abaAtual.value = 0;
     // Pede as permissões depois que a tela aparece (Android 13+).
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => Notificacoes.instance.pedirPermissoes(),
+    WidgetsBinding.instance.addPostFrameCallback((_) => _permissoes());
+  }
+
+  static const _chaveTelaCheia = 'pediu_tela_cheia';
+
+  Future<void> _permissoes() async {
+    await Notificacoes.instance.pedirPermissoes();
+    // Android 14+: sem a permissão "tela cheia", o alarme vira só uma
+    // notificação comum e a tela "Você já tomou?" não abre sozinha.
+    // Explica uma vez e abre o ajuste; se já estiver liberado, nada aparece.
+    if (await Banco.instance.lerChave(_chaveTelaCheia) == '1') return;
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.alarm, size: 36),
+        title: const Text('Mostrar o alarme na tela'),
+        content: const Text(
+          'Para a tela do remédio aparecer sozinha na hora certa, mesmo com o '
+          'celular bloqueado, ative "Permitir" na próxima tela e volte.',
+          style: TextStyle(fontSize: 17, height: 1.35),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Continuar', style: TextStyle(fontSize: 17)),
+          ),
+        ],
+      ),
     );
+    await Banco.instance.salvarChave(_chaveTelaCheia, '1');
+    await Notificacoes.instance.pedirTelaCheia();
   }
 
   @override

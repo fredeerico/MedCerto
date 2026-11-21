@@ -38,6 +38,10 @@ void main() {
       expect(_valido(nome: 'A').erros['nome'], contains('curto'));
     });
 
+    test('aceita dose vazia (é opcional)', () {
+      expect(_valido(dose: '').ok, isTrue);
+    });
+
     test('recusa dose sem número', () {
       expect(_valido(dose: 'muito').erros.containsKey('dose'), isTrue);
     });
@@ -149,5 +153,21 @@ void main() {
       expect(percentual(5, 5), 100);
     });
     test('sem doses previstas = 100%', () => expect(percentual(0, 0), 100));
+  });
+
+  group('dose com unidade', () {
+    test('montarDose junta número e unidade', () {
+      expect(montarDose('850', 'mg'), '850 mg');
+      expect(montarDose(' 5 ', 'ml'), '5 ml');
+      expect(montarDose('', 'mg'), '');
+      expect(montarDose('1 gota', 'mg'), '1 gota');
+    });
+
+    test('separarDose reconhece mg, g e ml', () {
+      expect(separarDose('850 mg'), ('850', 'mg'));
+      expect(separarDose('2,5ml'), ('2,5', 'ml'));
+      expect(separarDose('1 g'), ('1', 'g'));
+      expect(separarDose('1 gota'), ('1 gota', 'mg'));
+    });
   });
 }

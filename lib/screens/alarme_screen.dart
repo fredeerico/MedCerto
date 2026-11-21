@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/medicamento.dart';
 import '../services/acoes.dart';
@@ -11,7 +12,18 @@ import '../widgets/componentes.dart';
 class AlarmeScreen extends StatefulWidget {
   final int medId;
   final String horario;
-  const AlarmeScreen({super.key, required this.medId, required this.horario});
+
+  /// true quando o alarme abriu o app (celular bloqueado ou app fechado):
+  /// ao responder, o app fecha e volta para a tela de bloqueio, em vez de
+  /// deixar o app inteiro acessível sem desbloquear o celular.
+  final bool fecharAppAoTerminar;
+
+  const AlarmeScreen({
+    super.key,
+    required this.medId,
+    required this.horario,
+    this.fecharAppAoTerminar = false,
+  });
 
   @override
   State<AlarmeScreen> createState() => _AlarmeScreenState();
@@ -30,14 +42,25 @@ class _AlarmeScreenState extends State<AlarmeScreen> {
 
   void _fechar() {
     if (!mounted) return;
-    if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+    if (widget.fecharAppAoTerminar) {
+      SystemNavigator.pop(); // fecha o app; o celular continua bloqueado
+    } else if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final m = _med;
     final largura = MediaQuery.sizeOf(context).width;
-    return Scaffold(
+    // Botão "voltar" do Android também fecha o app quando ele foi aberto
+    // pelo alarme, para não mostrar as outras telas sem desbloquear.
+    return PopScope(
+      canPop: !widget.fecharAppAoTerminar,
+      onPopInvokedWithResult: (jaSaiu, _) {
+        if (!jaSaiu) _fechar();
+      },
+      child: Scaffold(
       backgroundColor: Cores.vinhoEscuro,
       body: Stack(
         children: [
@@ -129,6 +152,7 @@ class _AlarmeScreenState extends State<AlarmeScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 }

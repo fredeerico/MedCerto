@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/banco.dart';
+import '../services/biometria.dart';
 import '../services/estado.dart';
 import '../theme/tema.dart';
 import '../utils/validacao.dart';
@@ -118,6 +119,22 @@ class _PinScreenState extends State<PinScreen> {
       MaterialPageRoute(builder: (_) => const ShellScreen()),
       (_) => false,
     );
+  }
+
+  /// Tecla da digital no teclado do PIN.
+  Future<void> _digital() async {
+    if (widget.criando) {
+      mostrarAviso('Crie o PIN primeiro. Depois você pode usar a digital.');
+      return;
+    }
+    final resultado = await Biometria.instance.entrar();
+    if (!mounted) return;
+    if (resultado == ResultadoDigital.ok) {
+      _entrar();
+      return;
+    }
+    final aviso = Biometria.mensagem(resultado);
+    if (aviso != null) mostrarAviso(aviso);
   }
 
   Future<void> _esqueci() async {
@@ -276,8 +293,7 @@ class _PinScreenState extends State<PinScreen> {
                             icone: Icons.fingerprint,
                             rotulo: 'Digital',
                             fundo: Colors.transparent,
-                            onTap: () => mostrarAviso(
-                                'Entrada por digital chega na próxima versão.'),
+                            onTap: _digital,
                           ),
                           _Tecla(texto: '0', onTap: () => _tocar('0')),
                           _Tecla(
